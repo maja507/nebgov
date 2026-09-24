@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { VoteEscrowClient, VoteEscrowLock, VoteEscrowStats } from "@nebgov/sdk";
-import { parseNetwork } from "../lib/nebgov-env";
+import { readGovernorConfig } from "@/lib/nebgov-env";
 
 export interface UseVoteEscrowResult {
   lock: VoteEscrowLock | null;
@@ -10,7 +10,6 @@ export interface UseVoteEscrowResult {
   stats: VoteEscrowStats | null;
   loading: boolean;
   error: string | null;
-  refetch: () => void;
 }
 
 export function useVoteEscrow(address: string | undefined): UseVoteEscrowResult {
@@ -19,7 +18,6 @@ export function useVoteEscrow(address: string | undefined): UseVoteEscrowResult 
   const [stats, setStats] = useState<VoteEscrowStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refetchToken, setRefetchToken] = useState(0);
 
   useEffect(() => {
     if (!address) {
@@ -34,22 +32,19 @@ export function useVoteEscrow(address: string | undefined): UseVoteEscrowResult 
       setError(null);
 
       try {
-        const voteEscrowAddress = process.env.NEXT_PUBLIC_VOTE_ESCROW_ADDRESS;
-        const governorAddress = process.env.NEXT_PUBLIC_GOVERNOR_ADDRESS;
-        const timelockAddress = process.env.NEXT_PUBLIC_TIMELOCK_ADDRESS;
-        const votesAddress = process.env.NEXT_PUBLIC_VOTES_ADDRESS;
+        const config = readGovernorConfig();
+        if (!config || !config.governorAddress) {
+          throw new Error("Governor config not available");
+        }
 
+        const voteEscrowAddress = process.env.NEXT_PUBLIC_VOTE_ESCROW_ADDRESS;
         if (!voteEscrowAddress) {
           throw new Error("NEXT_PUBLIC_VOTE_ESCROW_ADDRESS not configured");
         }
 
         const client = new VoteEscrowClient({
-          governorAddress: governorAddress || "",
-          timelockAddress: timelockAddress || "",
-          votesAddress: votesAddress || "",
+          ...config,
           voteEscrowAddress,
-          network: parseNetwork(process.env.NEXT_PUBLIC_NETWORK),
-          rpcUrl: process.env.NEXT_PUBLIC_RPC_URL,
           simulationAccount: process.env.NEXT_PUBLIC_SIMULATION_ACCOUNT,
         });
 
@@ -62,7 +57,7 @@ export function useVoteEscrow(address: string | undefined): UseVoteEscrowResult 
         if (!cancelled) {
           setLock(lockData);
           setVotingPower(votingPowerData);
-          setStats(statsData);
+          setStats(statsData ?? null);
         }
       } catch (err) {
         if (!cancelled) {
@@ -80,9 +75,7 @@ export function useVoteEscrow(address: string | undefined): UseVoteEscrowResult 
     return () => {
       cancelled = true;
     };
-  }, [address, refetchToken]);
+  }, [address]);
 
-  const refetch = useCallback(() => setRefetchToken((t) => t + 1), []);
-
-  return { lock, votingPower, stats, loading, error, refetch };
+  return { lock, votingPower, stats, loading, error };
 }

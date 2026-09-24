@@ -268,8 +268,13 @@ export class VoteEscrowClient {
     });
   }
 
-  async getEscrowStats(): Promise<VoteEscrowStats> {
+  async getEscrowStats(): Promise<VoteEscrowStats | null> {
     return this.retry(async () => {
+      // Determine a ledger sequence to query the historical total supply at
+      const latest = await this.server.getLatestLedger();
+      // different versions of the RPC return sequence under different keys
+      const ledgerSeq = Number((latest as any).sequence ?? (latest as any).current ?? 0);
+
       const result = await this.server.simulateTransaction(
         new TransactionBuilder(
           await this.server.getAccount(this.readAccount()),
@@ -278,19 +283,37 @@ export class VoteEscrowClient {
             networkPassphrase: this.networkPassphrase,
           }
         )
-          .addOperation(this.contract.call("get_past_total_supply"))
+          // get_past_total_supply expects a ledger u32 argument
+          .addOperation(
+            this.contract.call(
+              "get_past_total_supply",
+              nativeToScVal(ledgerSeq, { type: "u32" })
+            )
+          )
           .setTimeout(30)
           .build()
       );
-      if (SorobanRpc.Api.isSimulationError(result)) {
-        return {
-          total_locked: 0n,
-          avg_lock_duration: 0,
-          num_active_locks: 0,
-        };
+
+      if (SorobanRpc.Api.isSimulationError(result)) return null;
+
+      const raw = (result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result?.retval;
+      if (!raw) return null;
+      const native = scValToNative(raw);
+      if (native === null || native === undefined) return null;
+
+      // Normalize the returned value to bigint (contract returns i128)
+      let totalLocked: bigint;
+      try {
+        totalLocked = BigInt(String(native));
+      } catch (e) {
+        return null;
       }
+
+      // If the contract reports zero, treat it as no meaningful data
+      if (totalLocked === 0n) return null;
+
       return {
-        total_locked: 0n,
+        total_locked: totalLocked,
         avg_lock_duration: 0,
         num_active_locks: 0,
       };

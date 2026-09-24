@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useEpochLeaderboard } from "../hooks/useVotingRewards";
 import { Skeleton } from "./ui/Skeleton";
 
@@ -18,6 +19,7 @@ interface RewardsLeaderboardProps {
   /** Highlighted in the table when it appears — the connected wallet. */
   highlightAddress?: string | null;
   limit?: number;
+  onRefetchReady?: (refetch: () => void) => void;
 }
 
 /** Top earners for one reward epoch (Issue #1011). */
@@ -25,8 +27,13 @@ export function RewardsLeaderboard({
   epochId,
   highlightAddress,
   limit = 10,
+  onRefetchReady,
 }: RewardsLeaderboardProps) {
-  const { rows, loading, error } = useEpochLeaderboard(epochId, limit);
+  const { rows, loading, error, refetch } = useEpochLeaderboard(epochId, limit);
+
+  useEffect(() => {
+    onRefetchReady?.(refetch);
+  }, [onRefetchReady, refetch]);
 
   if (epochId === null) {
     return (

@@ -55,6 +55,7 @@ export default function RewardsPage() {
   } = useClaimableRewards(publicKey ?? null);
   const [claimingEpoch, setClaimingEpoch] = useState<string | null>(null);
   const [claimingAll, setClaimingAll] = useState(false);
+  const [refetchLeaderboard, setRefetchLeaderboard] = useState<(() => void) | null>(null);
 
   const rewardsByEpoch = useMemo(() => {
     const map = new Map<string, ClaimableRewardRow>();
@@ -98,6 +99,7 @@ export default function RewardsPage() {
       toast.success(`Claimed epoch ${reward.epochId.toString()}.`);
       refetchRewards();
       refetchEpochs();
+      refetchLeaderboard?.();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Claim failed");
     } finally {
@@ -131,6 +133,7 @@ export default function RewardsPage() {
         toast.success(`Claimed ${claimed} epoch${claimed === 1 ? "" : "s"}.`);
         refetchRewards();
         refetchEpochs();
+        refetchLeaderboard?.();
       }
     } finally {
       setClaimingEpoch(null);
@@ -288,6 +291,7 @@ export default function RewardsPage() {
         <RewardsLeaderboard
           epochId={latestPublishedEpochId}
           highlightAddress={publicKey ?? null}
+          onRefetchReady={setRefetchLeaderboard}
         />
       </section>
     </div>

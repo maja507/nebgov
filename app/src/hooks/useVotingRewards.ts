@@ -55,13 +55,11 @@ export function buildVotingRewardsClient(): VotingRewardsClient | null {
   return new VotingRewardsClient(config);
 }
 
-/** The epochs the backend has computed, newest first, with offset-based paging. */
+/** The epochs the backend has computed, newest first. */
 export function useRewardEpochs(limit = 20) {
   const [epochs, setEpochs] = useState<RewardEpochSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [refetchToken, setRefetchToken] = useState(0);
 
   useEffect(() => {
@@ -69,11 +67,9 @@ export function useRewardEpochs(limit = 20) {
     setLoading(true);
     setError(null);
 
-    backendFetch<{ data: EpochResponseRow[] }>(`/voting-rewards/epochs?limit=${limit}&offset=0`)
+    backendFetch<{ data: EpochResponseRow[] }>(`/voting-rewards/epochs?limit=${limit}`)
       .then((res) => {
-        if (cancelled) return;
-        setEpochs(res.data.map(toEpochSummary));
-        setHasMore(res.data.length === limit);
+        if (!cancelled) setEpochs(res.data.map(toEpochSummary));
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -87,34 +83,7 @@ export function useRewardEpochs(limit = 20) {
     };
   }, [limit, refetchToken]);
 
-  const loadMore = useCallback(() => {
-    setLoadingMore(true);
-    setError(null);
-
-    backendFetch<{ data: EpochResponseRow[] }>(
-      `/voting-rewards/epochs?limit=${limit}&offset=${epochs.length}`,
-    )
-      .then((res) => {
-        setEpochs((prev) => [...prev, ...res.data.map(toEpochSummary)]);
-        setHasMore(res.data.length === limit);
-      })
-      .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => {
-        setLoadingMore(false);
-      });
-  }, [limit, epochs.length]);
-
-  return {
-    epochs,
-    loading,
-    loadingMore,
-    error,
-    hasMore,
-    loadMore,
-    refetch: useCallback(() => setRefetchToken((t) => t + 1), []),
-  };
+  return { epochs, loading, error, refetch: useCallback(() => setRefetchToken((t) => t + 1), []) };
 }
 
 /**
@@ -218,11 +187,17 @@ export function useClaimableRewards(address: string | null) {
   };
 }
 
-/** Top earners for one epoch. */
+/**
+ * Top earners for one epoch.
+ *
+ * Returns `refetch` so callers can refresh the claimed/unclaimed flags
+ * immediately after successful reward claims.
+ */
 export function useEpochLeaderboard(epochId: bigint | null, limit = 10) {
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refetchToken, setRefetchToken] = useState(0);
 
   useEffect(() => {
     if (epochId === null) {
@@ -258,7 +233,12 @@ export function useEpochLeaderboard(epochId: bigint | null, limit = 10) {
     return () => {
       cancelled = true;
     };
-  }, [epochId, limit]);
+  }, [epochId, limit, refetchToken]);
 
-  return { rows, loading, error };
+  return {
+    rows,
+    loading,
+    error,
+    refetch: useCallback(() => setRefetchToken((t) => t + 1), []),
+  };
 }

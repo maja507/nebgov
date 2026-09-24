@@ -44,6 +44,7 @@ function formatGovernanceAmount(v: bigint): string {
   return `${new Intl.NumberFormat("en").format(n)} GOV`;
 }
 
+// Route audit: /health is an API-only endpoint (no user page), so it remains intentionally unlinked.
 const NAV_LINKS = [
   { name: "Proposals", href: "/", icon: LayoutDashboard },
   { name: "Drafts", href: "/drafts", icon: FileText },
@@ -54,11 +55,14 @@ const NAV_LINKS = [
   { name: "Signals", href: "/signals", icon: Radio },
   { name: "Rewards", href: "/rewards", icon: Gift },
   { name: "Vote Escrow", href: "/vote-escrow", icon: Lock },
+  { name: "Bonds", href: "/bonds", icon: Wallet2 },
+  { name: "Drafts", href: "/drafts", icon: FileText },
   { name: "Delegates", href: "/delegates", icon: Users },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Treasury", href: "/treasury", icon: Wallet2 },
   { name: "Strategies", href: "/treasury/strategies", icon: TrendingUp },
   { name: "Governance Tuning", href: "/governance-tuning", icon: SlidersHorizontal },
+  { name: "Security", href: "/security", icon: Shield },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -168,6 +172,7 @@ export function NavBar() {
             role="navigation"
             aria-label="Main"
           >
+            {NAV_LINKS.map((link) => {
             {VISIBLE_NAV_LINKS.map((link) => {
               const isActive = pathname === link.href;
               return (
@@ -381,6 +386,7 @@ export function NavBar() {
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest px-2 mb-3">
                 Navigation
               </p>
+              {NAV_LINKS.map((link) => {
               {VISIBLE_NAV_LINKS.map((link) => {
                 const isActive = pathname === link.href;
                 const LinkIcon = link.icon;
